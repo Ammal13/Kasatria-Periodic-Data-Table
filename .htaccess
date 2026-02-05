@@ -1,0 +1,22 @@
+# .htaccess - Apache configuration for PHP authentication
+
+# Set default page
+DirectoryIndex login_page.php index.php index.html
+
+# Enable PHP error reporting (for development only)
+php_flag display_errors On
+php_value error_reporting E_ALL
+
+# Rewrite rules (optional)
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # Redirect old index.html to index.php
+    RewriteRule ^index\.html$ index.php [R=301,L]
+</IfModule>
+
+# Security headers
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+</IfModule>

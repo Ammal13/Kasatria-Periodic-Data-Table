@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Display Test</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+            color: white;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #4285f4;
+        }
+
+        .test-container {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+
+        .data-tile {
+            display: inline-block;
+            width: 140px;
+            height: 200px;
+            margin: 10px;
+            padding: 8px;
+            border-radius: 8px;
+            text-align: center;
+            vertical-align: top;
+        }
+
+        .red {
+            background: rgba(255, 68, 68, 0.35);
+            border: 2px solid rgba(255, 68, 68, 0.6);
+        }
+
+        .orange {
+            background: rgba(255, 165, 0, 0.35);
+            border: 2px solid rgba(255, 165, 0, 0.6);
+        }
+
+        .green {
+            background: rgba(68, 255, 68, 0.35);
+            border: 2px solid rgba(68, 255, 68, 0.6);
+        }
+
+        .photo {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            margin: 10px auto;
+            overflow: hidden;
+        }
+
+        .photo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .name {
+            font-weight: bold;
+            margin: 5px 0;
+            font-size: 11px;
+        }
+
+        .info {
+            font-size: 9px;
+            margin: 2px 0;
+        }
+
+        .networth {
+            font-weight: bold;
+            margin-top: 10px;
+            font-size: 12px;
+        }
+
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            background: #4285f4;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>📊 Simple Data Display Test</h1>
+    <div id="status" class="status">Loading data...</div>
+    <div class="test-container" id="tiles-container"></div>
+
+    <script>
+        const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSaavzygL6yy8n9CttQ1aAh9g2Nfxsn0z5ONlPOKFV4pdBiW9rTptDiEXfxrcl_iPHhC1oeqnPtorFU/pub?output=csv';
+
+        async function loadAndDisplay() {
+            try {
+                const response = await fetch(CSV_URL);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+                const text = await response.text();
+                const data = parseCSV(text);
+
+                document.getElementById('status').textContent = `✅ Loaded ${data.length} records - Displaying first 20`;
+
+                const container = document.getElementById('tiles-container');
+                container.innerHTML = '';
+
+                // Display first 20 items
+                for (let i = 0; i < Math.min(20, data.length); i++) {
+                    const person = data[i];
+                    const tile = createTile(person);
+                    container.appendChild(tile);
+                }
+
+            } catch (error) {
+                document.getElementById('status').textContent = `❌ Error: ${error.message}`;
+                document.getElementById('status').style.background = '#dc3545';
+            }
+        }
+
+        function parseCSV(csvText) {
+            const lines = csvText.split(/\r?\n/).filter(l => l.trim().length > 0);
+            if (lines.length <= 1) return [];
+
+            const rows = lines.slice(1).map(parseCsvLine);
+            const processed = [];
+
+            for (let i = 0; i < rows.length; i++) {
+                const cells = rows[i];
+                if (!cells || cells.length < 6) continue;
+
+                const name = cells[0] || `Person ${i + 1}`;
+                const photo = cells[1] || `https://via.placeholder.com/60`;
+                const age = (cells[2] || 'Unknown').toString();
+                const country = cells[3] || 'Unknown';
+                const interest = cells[4] || 'Unknown';
+                let netWorthStr = cells[5] || '$0';
+
+                let netWorthValue = parseFloat(netWorthStr.toString().replace(/[$,]/g, ''));
+                if (isNaN(netWorthValue)) netWorthValue = 0;
+
+                let colorClass;
+                if (netWorthValue < 100000) colorClass = 'red';
+                else if (netWorthValue < 200000) colorClass = 'orange';
+                else colorClass = 'green';
+
+                processed.push({
+                    name, photo, age, country, interest,
+                    netWorth: new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(netWorthValue),
+                    colorClass
+                });
+            }
+
+            return processed;
+        }
+
+        function parseCsvLine(line) {
+            const result = [];
+            let cur = '';
+            let inQuotes = false;
+            for (let i = 0; i < line.length; i++) {
+                const ch = line[i];
+                if (ch === '"') {
+                    if (inQuotes && line[i + 1] === '"') { cur += '"'; i++; } else { inQuotes = !inQuotes; }
+                } else if (ch === ',' && !inQuotes) {
+                    result.push(cur);
+                    cur = '';
+                } else {
+                    cur += ch;
+                }
+            }
+            result.push(cur);
+            return result.map(s => s.trim());
+        }
+
+        function createTile(person) {
+            const tile = document.createElement('div');
+            tile.className = `data-tile ${person.colorClass}`;
+
+            tile.innerHTML = `
+                <div class="photo">
+                    <img src="${person.photo}" onerror="this.src='https://via.placeholder.com/60'">
+                </div>
+                <div class="name">${person.name}</div>
+                <div class="info">Age: ${person.age}</div>
+                <div class="info">Country: ${person.country}</div>
+                <div class="info">Interest: ${person.interest}</div>
+                <div class="networth">${person.netWorth}</div>
+            `;
+
+            return tile;
+        }
+
+        window.addEventListener('load', loadAndDisplay);
+    </script>
+</body>
+
+</html>

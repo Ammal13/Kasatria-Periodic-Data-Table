@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Sheets Data Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        h2 {
+            color: #333;
+            border-bottom: 2px solid #4285f4;
+            padding-bottom: 10px;
+        }
+
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        button {
+            background: #4285f4;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        button:hover {
+            background: #3367d6;
+        }
+
+        pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            max-height: 400px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background: #4285f4;
+            color: white;
+        }
+
+        tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🔍 Google Sheets Data Loader Diagnostic</h1>
+
+    <div class="test-section">
+        <h2>Configuration</h2>
+        <div id="config-info"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test Methods</h2>
+        <button onclick="testAPI()">Test Google Sheets API v4</button>
+        <button onclick="testPublishedCSV()">Test Published CSV</button>
+        <button onclick="testGViz()">Test Google Visualization API</button>
+        <button onclick="testCSVExport()">Test CSV Export</button>
+        <button onclick="testAllMethods()">Test All Methods</button>
+    </div>
+
+    <div class="test-section">
+        <h2>Results</h2>
+        <div id="results"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Data Preview</h2>
+        <div id="data-preview"></div>
+    </div>
+
+    <script>
+        // Configuration from data-loader.js
+        const SHEET_ID = '16B1AL6GNfzoJN3kGvYMSzQmVqHTRdU3-GbBMkbtEoB0';
+        const API_KEY = 'AIzaSyCu-bTfEAZtfFVjMr5u0Yat_VrhqXxS90o';
+        const SHEET_NAME = 'Data Template';
+        const SHEET_GID = '1958506502';
+        const PUBLISHED_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSaavzygL6yy8n9CttQ1aAh9g2Nfxsn0z5ONlPOKFV4pdBiW9rTptDiEXfxrcl_iPHhC1oeqnPtorFU/pub?gid=1958506502&single=true&output=csv';
+
+        // Display configuration
+        document.getElementById('config-info').innerHTML = `
+            <table>
+                <tr><th>Parameter</th><th>Value</th></tr>
+                <tr><td>Sheet ID</td><td>${SHEET_ID}</td></tr>
+                <tr><td>API Key</td><td>${API_KEY.substring(0, 20)}...</td></tr>
+                <tr><td>Sheet Name</td><td>${SHEET_NAME}</td></tr>
+                <tr><td>Sheet GID</td><td>${SHEET_GID}</td></tr>
+                <tr><td>Published CSV URL</td><td>${PUBLISHED_CSV_URL ? 'Configured ✓' : 'Not configured'}</td></tr>
+            </table>
+        `;
+
+        function addResult(title, status, message, data = null) {
+            const resultsDiv = document.getElementById('results');
+            const statusClass = status === 'success' ? 'success' : status === 'error' ? 'error' : 'info';
+
+            let html = `
+                <div class="status ${statusClass}">
+                    <strong>${title}</strong><br>
+                    ${message}
+                    ${data ? `<pre>${JSON.stringify(data, null, 2).substring(0, 500)}...</pre>` : ''}
+                </div>
+            `;
+
+            resultsDiv.innerHTML += html;
+        }
+
+        function showDataPreview(data) {
+            const previewDiv = document.getElementById('data-preview');
+
+            if (!data || data.length === 0) {
+                previewDiv.innerHTML = '<p class="error">No data to display</p>';
+                return;
+            }
+
+            let html = `
+                <p class="success">Successfully loaded ${data.length} records</p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Name</th>
+                            <th>Photo</th>
+                            <th>Age</th>
+                            <th>Country</th>
+                            <th>Interest</th>
+                            <th>Net Worth</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            // Show first 10 records
+            for (let i = 0; i < Math.min(10, data.length); i++) {
+                const item = data[i];
+                html += `
+                    <tr>
+                        <td>${i + 1}</td>
+                        <td>${item.name}</td>
+                        <td><img src="${item.photo}" width="50" onerror="this.src='https://via.placeholder.com/50'"></td>
+                        <td>${item.age}</td>
+                        <td>${item.country}</td>
+                        <td>${item.interest}</td>
+                        <td style="color: ${item.color}">${item.netWorth}</td>
+                    </tr>
+                `;
+            }
+
+            html += `
+                    </tbody>
+                </table>
+                ${data.length > 10 ? `<p>Showing 10 of ${data.length} records</p>` : ''}
+            `;
+
+            previewDiv.innerHTML = html;
+        }
+
+        async function testAPI() {
+            addResult('Google Sheets API v4', 'info', 'Testing...');
+
+            try {
+                const apiUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_NAME}?key=${API_KEY}`;
+                console.log('API URL:', apiUrl);
+
+                const response = await fetch(apiUrl);
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    addResult('Google Sheets API v4', 'error', `HTTP ${response.status}: ${response.statusText}`, errorText);
+                    return null;
+                }
+
+                const data = await response.json();
+
+                if (!data.values || data.values.length < 2) {
+                    addResult('Google Sheets API v4', 'error', 'No data found in response');
+                    return null;
+                }
+
+                addResult('Google Sheets API v4', 'success', `Successfully loaded ${data.values.length - 1} rows`);
+
+                // Process the data
+                const processedData = processAPIData(data.values);
+                showDataPreview(processedData);
+                return processedData;
+
+            } catch (error) {
+                addResult('Google Sheets API v4', 'error', error.message);
+                return null;
+            }
+        }
+
+        async function testPublishedCSV() {
+            addResult('Published CSV', 'info', 'Testing...');
+
+            if (!PUBLISHED_CSV_URL) {
+                addResult('Published CSV', 'error', 'No published CSV URL configured');
+                return null;
+            }
+
+            try {
+                const response = await fetch(PUBLISHED_CSV_URL);
+
+                if (!response.ok) {
+                    addResult('Published CSV', 'error', `HTTP ${response.status}: ${response.statusText}`);
+                    return null;
+                }
+
+                const text = await response.text();
+
+                if (text.trim().startsWith('<')) {
+                    addResult('Published CSV', 'error', 'Response appears to be HTML, not CSV');
+                    return null;
+                }
+
+                addResult('Published CSV', 'success', `Successfully fetched CSV (${text.length} bytes)`);
+
+                // Process CSV
+                const processedData = parseCSV(text);
+                showDataPreview(processedData);
+                return processedData;
+
+            } catch (error) {
+                addResult('Published CSV', 'error', error.message);
+                return null;
+            }
+        }
+
+        async function testGViz() {
+            addResult('Google Visualization API', 'info', 'Testing...');
+
+            try {
+                const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${SHEET_NAME}`;
+                console.log('GViz URL:', url);
+
+                const response = await fetch(url);
+
+                if (!response.ok) {
+                    addResult('Google Visualization API', 'error', `HTTP ${response.status}: ${response.statusText}`);
+                    return null;
+                }
+
+                const text = await response.text();
+                const jsonMatch = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]+)\);/);
+
+                if (!jsonMatch || !jsonMatch[1]) {
+                    addResult('Google Visualization API', 'error', 'Could not parse GViz response');
+                    return null;
+                }
+
+                const data = JSON.parse(jsonMatch[1]);
+
+                if (!data.table || !data.table.rows) {
+                    addResult('Google Visualization API', 'error', 'Invalid data structure');
+                    return null;
+                }
+
+                addResult('Google Visualization API', 'success', `Successfully loaded ${data.table.rows.length} rows`);
+
+                // Process the data
+                const processedData = processGVizData(data);
+                showDataPreview(processedData);
+                return processedData;
+
+            } catch (error) {
+                addResult('Google Visualization API', 'error', error.message);
+                return null;
+            }
+        }
+
+        async function testCSVExport() {
+            addResult('CSV Export', 'info', 'Testing...');
+
+            try {
+                const csvUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}`;
+                console.log('CSV Export URL:', csvUrl);
+
+                const response = await fetch(csvUrl);
+
+                if (!response.ok) {
+                    addResult('CSV Export', 'error', `HTTP ${response.status}: ${response.statusText}`);
+                    return null;
+                }
+
+                const text = await response.text();
+
+                if (text.trim().startsWith('<') || /Sign in to Google/.test(text)) {
+                    addResult('CSV Export', 'error', 'Response appears to be HTML/login page');
+                    return null;
+                }
+
+                addResult('CSV Export', 'success', `Successfully fetched CSV (${text.length} bytes)`);
+
+                // Process CSV
+                const processedData = parseCSV(text);
+                showDataPreview(processedData);
+                return processedData;
+
+            } catch (error) {
+                addResult('CSV Export', 'error', error.message);
+                return null;
+            }
+        }
+
+        async function testAllMethods() {
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('data-preview').innerHTML = '';
+
+            addResult('Test All Methods', 'info', 'Testing all data loading methods...');
+
+            // Try each method in order
+            let data = await testAPI();
+            if (data) return;
+
+            data = await testPublishedCSV();
+            if (data) return;
+
+            data = await testGViz();
+            if (data) return;
+
+            data = await testCSVExport();
+            if (data) return;
+
+            addResult('Test All Methods', 'error', 'All methods failed. Please check sheet permissions and configuration.');
+        }
+
+        // Data processing functions
+        function processAPIData(values) {
+            const headers = values[0];
+            const rows = values.slice(1);
+            const processed = [];
+
+            for (let i = 0; i < rows.length; i++) {
+                const cells = rows[i];
+                if (!cells || cells.length === 0) continue;
+
+                const name = cells[0] || `Person ${i + 1}`;
+                const photo = cells[1] || `https://via.placeholder.com/100/4682B4/FFFFFF?text=${encodeURIComponent(name.substring(0, 2))}`;
+                const age = (cells[2] || 'Unknown').toString();
+                const country = cells[3] || 'Unknown';
+                const interest = cells[4] || 'Unknown';
+                let netWorthStr = cells[5] || '$0';
+
+                let netWorthValue = parseFloat(netWorthStr.toString().replace(/[$,]/g, ''));
+                if (isNaN(netWorthValue)) netWorthValue = 0;
+
+                let color;
+                if (netWorthValue < 100000) color = '#ff4444';
+                else if (netWorthValue < 200000) color = '#ffa500';
+                else color = '#44ff44';
+
+                processed.push({
+                    name,
+                    photo,
+                    age,
+                    country,
+                    interest,
+                    netWorth: new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(netWorthValue),
+                    netWorthValue,
+                    color,
+                    index: i
+                });
+            }
+
+            return processed;
+        }
+
+        function processGVizData(data) {
+            const rows = data.table.rows;
+            const processed = [];
+
+            for (let i = 0; i < rows.length; i++) {
+                const row = rows[i];
+                const cells = row.c;
+
+                if (!cells || cells.length < 6) continue;
+
+                const name = cells[0]?.v || `Person ${i + 1}`;
+                const photo = cells[1]?.v || `https://via.placeholder.com/100/4682B4/FFFFFF?text=${encodeURIComponent(name.substring(0, 2))}`;
+                const age = cells[2]?.v?.toString() || 'Unknown';
+                const country = cells[3]?.v || 'Unknown';
+                const interest = cells[4]?.v || 'Unknown';
+
+                let netWorthStr = cells[5]?.v || '$0';
+                let netWorthValue = parseFloat(netWorthStr.toString().replace(/[$,]/g, ''));
+                if (isNaN(netWorthValue)) netWorthValue = 0;
+
+                let color;
+                if (netWorthValue < 100000) color = '#ff4444';
+                else if (netWorthValue < 200000) color = '#ffa500';
+                else color = '#44ff44';
+
+                processed.push({
+                    name,
+                    photo,
+                    age,
+                    country,
+                    interest,
+                    netWorth: new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(netWorthValue),
+                    netWorthValue,
+                    color,
+                    index: i
+                });
+            }
+
+            return processed;
+        }
+
+        function parseCSV(csvText) {
+            const lines = csvText.split(/\r?\n/).filter(l => l.trim().length > 0);
+            if (lines.length <= 1) return [];
+
+            const headers = parseCsvLine(lines[0]);
+            const rows = lines.slice(1).map(parseCsvLine);
+            const processed = [];
+
+            for (let i = 0; i < rows.length; i++) {
+                const cells = rows[i];
+                const name = cells[0] || `Person ${i + 1}`;
+                const photo = cells[1] || `https://via.placeholder.com/100/4682B4/FFFFFF?text=${encodeURIComponent(name.substring(0, 2))}`;
+                const age = (cells[2] || 'Unknown').toString();
+                const country = cells[3] || 'Unknown';
+                const interest = cells[4] || 'Unknown';
+                let netWorthStr = cells[5] || '$0';
+
+                let netWorthValue = parseFloat(netWorthStr.toString().replace(/[$,]/g, ''));
+                if (isNaN(netWorthValue)) netWorthValue = 0;
+
+                let color;
+                if (netWorthValue < 100000) color = '#ff4444';
+                else if (netWorthValue < 200000) color = '#ffa500';
+                else color = '#44ff44';
+
+                processed.push({
+                    name,
+                    photo,
+                    age,
+                    country,
+                    interest,
+                    netWorth: new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(netWorthValue),
+                    netWorthValue,
+                    color,
+                    index: i
+                });
+            }
+
+            return processed;
+        }
+
+        function parseCsvLine(line) {
+            const result = [];
+            let cur = '';
+            let inQuotes = false;
+            for (let i = 0; i < line.length; i++) {
+                const ch = line[i];
+                if (ch === '"') {
+                    if (inQuotes && line[i + 1] === '"') { cur += '"'; i++; } else { inQuotes = !inQuotes; }
+                } else if (ch === ',' && !inQuotes) {
+                    result.push(cur);
+                    cur = '';
+                } else {
+                    cur += ch;
+                }
+            }
+            result.push(cur);
+            return result.map(s => s.trim());
+        }
+
+        // Auto-run test on page load
+        window.addEventListener('load', () => {
+            console.log('Page loaded, running automatic test...');
+            setTimeout(testAllMethods, 500);
+        });
+    </script>
+</body>
+
+</html>

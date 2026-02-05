@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quick Data Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: white;
+        }
+
+        .status {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        .success {
+            background: #28a745;
+        }
+
+        .error {
+            background: #dc3545;
+        }
+
+        .loading {
+            background: #ffc107;
+            color: #000;
+        }
+
+        pre {
+            background: #2d2d2d;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background: white;
+            color: black;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+
+        th {
+            background: #4285f4;
+            color: white;
+        }
+
+        img {
+            border-radius: 50%;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🔍 Quick Data Loading Test</h1>
+    <div id="status" class="status loading">⏳ Loading data from Google Sheets...</div>
+    <div id="results"></div>
+
+    <script>
+        const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSaavzygL6yy8n9CttQ1aAh9g2Nfxsn0z5ONlPOKFV4pdBiW9rTptDiEXfxrcl_iPHhC1oeqnPtorFU/pub?gid=1958506502&single=true&output=csv';
+
+        async function testDataLoading() {
+            try {
+                console.log('Fetching from:', CSV_URL);
+
+                const response = await fetch(CSV_URL);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const text = await response.text();
+                console.log('Received CSV data:', text.substring(0, 200) + '...');
+
+                // Check if it's actually CSV
+                if (text.trim().startsWith('<')) {
+                    throw new Error('Received HTML instead of CSV. Please ensure the sheet is published as CSV.');
+                }
+
+                // Parse CSV
+                const data = parseCSV(text);
+
+                if (data.length === 0) {
+                    throw new Error('No data found in CSV');
+                }
+
+                // Success!
+                document.getElementById('status').className = 'status success';
+                document.getElementById('status').innerHTML = `✅ Successfully loaded ${data.length} records from Google Sheets!`;
+
+                // Display data
+                displayData(data);
+
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('status').className = 'status error';
+                document.getElementById('status').innerHTML = `❌ Error: ${error.message}`;
+
+                document.getElementById('results').innerHTML = `
+                    <h3>Troubleshooting Steps:</h3>
+                    <ol>
+                        <li>Ensure your Google Sheet is published to the web (File → Share → Publish to web)</li>
+                        <li>Select "Comma-separated values (.csv)" format</li>
+                        <li>Make sure the correct sheet tab is selected (gid=1958506502)</li>
+                        <li>Check browser console (F12) for detailed error messages</li>
+                    </ol>
+                    <h3>Error Details:</h3>
+                    <pre>${error.stack || error.message}</pre>
+                `;
+            }
+        }
+
+        function parseCSV(csvText) {
+            const lines = csvText.split(/\r?\n/).filter(l => l.trim().length > 0);
+            if (lines.length <= 1) return [];
+
+            const rows = lines.slice(1).map(parseCsvLine); // Skip header
+            const processed = [];
+
+            for (let i = 0; i < rows.length; i++) {
+                const cells = rows[i];
+                if (!cells || cells.length < 6) continue;
+
+                const name = cells[0] || `Person ${i + 1}`;
+                const photo = cells[1] || `https://via.placeholder.com/50`;
+                const age = (cells[2] || 'Unknown').toString();
+                const country = cells[3] || 'Unknown';
+                const interest = cells[4] || 'Unknown';
+                let netWorthStr = cells[5] || '$0';
+
+                let netWorthValue = parseFloat(netWorthStr.toString().replace(/[$,]/g, ''));
+                if (isNaN(netWorthValue)) netWorthValue = 0;
+
+                let color;
+                if (netWorthValue < 100000) color = '#ff4444';
+                else if (netWorthValue < 200000) color = '#ffa500';
+                else color = '#44ff44';
+
+                processed.push({
+                    name,
+                    photo,
+                    age,
+                    country,
+                    interest,
+                    netWorth: new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(netWorthValue),
+                    netWorthValue,
+                    color
+                });
+            }
+
+            return processed;
+        }
+
+        function parseCsvLine(line) {
+            const result = [];
+            let cur = '';
+            let inQuotes = false;
+            for (let i = 0; i < line.length; i++) {
+                const ch = line[i];
+                if (ch === '"') {
+                    if (inQuotes && line[i + 1] === '"') { cur += '"'; i++; } else { inQuotes = !inQuotes; }
+                } else if (ch === ',' && !inQuotes) {
+                    result.push(cur);
+                    cur = '';
+                } else {
+                    cur += ch;
+                }
+            }
+            result.push(cur);
+            return result.map(s => s.trim());
+        }
+
+        function displayData(data) {
+            let html = `
+                <h2>📊 Data Preview (First 10 Records)</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Photo</th>
+                            <th>Name</th>
+                            <th>Age</th>
+                            <th>Country</th>
+                            <th>Interest</th>
+                            <th>Net Worth</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            for (let i = 0; i < Math.min(10, data.length); i++) {
+                const item = data[i];
+                html += `
+                    <tr>
+                        <td>${i + 1}</td>
+                        <td><img src="${item.photo}" width="50" height="50" onerror="this.src='https://via.placeholder.com/50'"></td>
+                        <td>${item.name}</td>
+                        <td>${item.age}</td>
+                        <td>${item.country}</td>
+                        <td>${item.interest}</td>
+                        <td style="color: ${item.color}; font-weight: bold;">${item.netWorth}</td>
+                    </tr>
+                `;
+            }
+
+            html += `
+                    </tbody>
+                </table>
+                <p style="margin-top: 20px; font-size: 14px; color: #aaa;">
+                    Showing ${Math.min(10, data.length)} of ${data.length} total records
+                </p>
+            `;
+
+            document.getElementById('results').innerHTML = html;
+        }
+
+        // Run test on page load
+        window.addEventListener('load', testDataLoading);
+    </script>
+</body>
+
+</html>
